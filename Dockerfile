@@ -1,8 +1,10 @@
 FROM ubuntu
 LABEL Name="sonarqube" Version="1.0" Maintainer="Onepoint Australia" Environment="DEV"
 
-RUN add-apt-repository ppa:webupd8team/java
+# Getting APT to use our apt-cacher-ng instance
+RUN sed -i 's/http\:\/\//http\:\/\/ews-apt-cache-ng-dev.azurewebsites.net\//g' /etc/apt/sources.list
 
+# Install packages
 RUN apt update && \
     apt upgrade -y && \
     apt install -y --no-install-recommends \
@@ -13,8 +15,13 @@ RUN apt update && \
     supervisor \
     syslog-ng \
     openssh-server \
-    oracle-java8-installer && \
+    java-common \
+    software-properties-common && \
     apt-get clean
+
+# Install Amazon Corretto 8
+RUN wget https://d3pxv6yz143wms.cloudfront.net/8.232.09.1/java-1.8.0-amazon-corretto-jdk_8.232.09-1_amd64.deb && \
+    dpkg -i java-1.8.0-amazon-corretto-jdk_8.232.09-1_amd64.deb
 
 # Folder needed by PHP and Openssh
 RUN mkdir -p /var/run/sshd
@@ -37,7 +44,7 @@ RUN chmod 0600 /home/human/.ssh/id_rsa_onepoint_human.pub && \
     chown -R human:human /home/human/.ssh/
 
 RUN java -version && \
-    mysql -u root -pmysql -e "create database sonar" && \
+    # mysql -u root -pmysql -e "create database sonar" && \
     wget https://binaries.sonarsource.com/Distribution/sonarqube/sonarqube-8.0.zip && \
     unzip sonarqube-8.0.zip -d /opt && \
     cd /opt && \
