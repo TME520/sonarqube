@@ -1,6 +1,8 @@
 FROM ubuntu
 LABEL Name="sonarqube" Version="1.0" Maintainer="Onepoint Australia" Environment="DEV"
 
+RUN add-apt-repository ppa:webupd8team/java
+
 RUN apt update && \
     apt upgrade -y && \
     apt install -y --no-install-recommends \
@@ -10,7 +12,8 @@ RUN apt update && \
     unzip \
     supervisor \
     syslog-ng \
-    openssh-server && \
+    openssh-server \
+    oracle-java8-installer && \
     apt-get clean
 
 # Folder needed by PHP and Openssh
@@ -32,6 +35,19 @@ RUN chmod 0600 /home/human/.ssh/id_rsa_onepoint_human.pub && \
     chmod 0600 /home/human/.ssh/authorized_keys && \
     cat /home/human/.ssh/id_rsa_onepoint_human.pub >> /home/human/.ssh/authorized_keys && \
     chown -R human:human /home/human/.ssh/
+
+RUN java -version && \
+    mysql -u root -pmysql -e "create database sonar" && \
+    wget https://binaries.sonarsource.com/Distribution/sonarqube/sonarqube-8.0.zip && \
+    unzip sonarqube-8.0.zip -d /opt &&
+    cd /opt && \
+    mv sonarqube-8.0 sonar && \
+    groupadd sonar && \
+    useradd -c "user to run SonarQube" -d /opt/sonar -g sonar sonar && \
+    chown sonar:sonar /opt/sonar -R
+
+# COPY config/sonarqube/sonar.properties /opt/sonar/conf/sonar.properties
+# COPY config/sonarqube/sonar.sh /opt/sonar/bin/linux-x86-64/
 
 # Port 9000 is for SonarQube
 EXPOSE 2222 9000
