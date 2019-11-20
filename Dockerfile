@@ -39,7 +39,7 @@ RUN chmod 0600 /home/human/.ssh/id_rsa_onepoint_human.pub && \
 RUN java -version && \
     mysql -u root -pmysql -e "create database sonar" && \
     wget https://binaries.sonarsource.com/Distribution/sonarqube/sonarqube-8.0.zip && \
-    unzip sonarqube-8.0.zip -d /opt &&
+    unzip sonarqube-8.0.zip -d /opt && \
     cd /opt && \
     mv sonarqube-8.0 sonar && \
     groupadd sonar && \
