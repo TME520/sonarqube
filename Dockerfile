@@ -1,70 +1,61 @@
-FROM ubuntu
+FROM openjdk:11-jre-slim
 LABEL Name="sonarqube" Version="1.0" Maintainer="Onepoint Australia" Environment="DEV"
 
 # Getting APT to use our apt-cacher-ng instance
 RUN sed -i 's/http\:\/\//http\:\/\/ews-apt-cache-ng-dev.azurewebsites.net\//g' /etc/apt/sources.list
 
-# Install packages
-RUN apt update && \
-    apt upgrade -y && \
-    apt install -y --no-install-recommends \
-    mysql-server \
-    mysql-client \
-    wget \
-    unzip \
-    supervisor \
-    syslog-ng \
-    openssh-server \
-    java-common \
-    sudo \
-    vim \
-    software-properties-common && \
-    apt-get clean
+RUN apt update \
+    && apt install -y curl unzip libfreetype6 libfontconfig1 \
+    && rm -rf /var/lib/apt/lists/*
 
-# Install Amazon Corretto 8
-RUN wget https://d3pxv6yz143wms.cloudfront.net/8.232.09.1/java-1.8.0-amazon-corretto-jdk_8.232.09-1_amd64.deb && \
-    dpkg -i java-1.8.0-amazon-corretto-jdk_8.232.09-1_amd64.deb
+# Http port
+EXPOSE 9000
 
-# Folder needed by PHP and Openssh
-RUN mkdir -p /var/run/sshd
+RUN groupadd -r sonarqube && useradd -r -g sonarqube sonarqube
 
-# Setting things right for MySQL
-VOLUME /var/lib/mysql
-RUN mkdir /var/run/mysqld/ && \
-    find /var/lib/mysql -type f -exec touch {} \; && \
-    chown -R mysql:mysql /var/lib/mysql /var/run/mysqld
+ARG SONARQUBE_VERSION=8.0
+ARG SONARQUBE_ZIP_URL=https://binaries.sonarsource.com/Distribution/sonarqube/sonarqube-${SONARQUBE_VERSION}.zip
+ENV SONAR_VERSION=${SONARQUBE_VERSION} \
+    SONARQUBE_HOME=/opt/sq \
+    SONARQUBE_PUBLIC_HOME=/opt/sonarqube
 
-# Copy configuration files
-COPY config/supervisor/supervisord.conf /etc/supervisor/
-COPY config/openssh/ /etc/ssh/
+SHELL ["/bin/bash", "-c"]
+RUN sed -i -e "s?securerandom.source=file:/dev/random?securerandom.source=file:/dev/urandom?g" \
+  "$JAVA_HOME/conf/security/java.security"
 
-# Configuring SSH -- please disable this in prod
-RUN echo "root:Docker!" | chpasswd && \
-    useradd -d /home/human -m -s /bin/bash human && echo "human:J3anne#Iz&H3re%" | chpasswd && adduser human sudo && \
-    mkdir -p /home/human/.ssh/ && \
-    chmod 0700 /home/human/.ssh/
-COPY config/openssh/id_rsa_onepoint_human.pub /home/human/.ssh/
-RUN chmod 0600 /home/human/.ssh/id_rsa_onepoint_human.pub && \
-    touch /home/human/.ssh/authorized_keys && \
-    chmod 0600 /home/human/.ssh/authorized_keys && \
-    cat /home/human/.ssh/id_rsa_onepoint_human.pub >> /home/human/.ssh/authorized_keys && \
-    chown -R human:human /home/human/.ssh/
+RUN set -x \
+    && cd /opt \
+# download and unzip SQ
+    && curl -o sonarqube.zip -fsSL "$SONARQUBE_ZIP_URL" \
+    && unzip -q sonarqube.zip \
+    && mv "sonarqube-${SONARQUBE_VERSION}" sq \
+    && rm sonarqube.zip* \
+# empty bin directory from useless scripts
+# create copies or delete directories allowed to be mounted as volumes, original directories will be recreated below as symlinks
+    && rm --recursive --force "$SONARQUBE_HOME/bin"/* \
+    && mv "$SONARQUBE_HOME/conf" "$SONARQUBE_HOME/conf_save" \
+    && mv "$SONARQUBE_HOME/extensions" "$SONARQUBE_HOME/extensions_save" \
+    && rm --recursive --force "$SONARQUBE_HOME/logs" \
+    && rm --recursive --force "$SONARQUBE_HOME/data" \
+# create directories to be declared as volumes
+# copy into them to ensure they are initialized by 'docker run' when new volume is created
+# 'docker run' initialization will not work if volume is bound to the host's filesystem or when volume already exists
+# initialization is implemented in 'run.sh' for these cases
+    && mkdir --parents "$SONARQUBE_PUBLIC_HOME/conf" \
+    && mkdir --parents "$SONARQUBE_PUBLIC_HOME/extensions" \
+    && mkdir --parents "$SONARQUBE_PUBLIC_HOME/logs" \
+    && mkdir --parents "$SONARQUBE_PUBLIC_HOME/data" \
+    && cp --recursive "$SONARQUBE_HOME/conf_save"/* "$SONARQUBE_PUBLIC_HOME/conf/" \
+    && cp --recursive "$SONARQUBE_HOME/extensions_save"/* "$SONARQUBE_PUBLIC_HOME/extensions/" \
+# create symlinks to volume directories
+    && ln -s "$SONARQUBE_PUBLIC_HOME/conf" "$SONARQUBE_HOME/conf" \
+    && ln -s "$SONARQUBE_PUBLIC_HOME/extensions" "$SONARQUBE_HOME/extensions" \
+    && ln -s "$SONARQUBE_PUBLIC_HOME/logs" "$SONARQUBE_HOME/logs" \
+    && ln -s "$SONARQUBE_PUBLIC_HOME/data" "$SONARQUBE_HOME/data" \
+    && chown --recursive sonarqube:sonarqube "$SONARQUBE_HOME" "$SONARQUBE_PUBLIC_HOME"
 
-RUN java -version && \
-    wget https://binaries.sonarsource.com/Distribution/sonarqube/sonarqube-8.0.zip && \
-    unzip sonarqube-8.0.zip -d /opt && \
-    cd /opt && \
-    mv sonarqube-8.0 sonar && \
-    groupadd sonar && \
-    useradd -c "User to run SonarQube" -d /opt/sonar -g sonar sonar && \
-    chown sonar:sonar /opt/sonar -R
+COPY --chown=sonarqube:sonarqube run.sh "$SONARQUBE_HOME/bin/"
 
-COPY config/sonarqube/sonar.properties /opt/sonar/conf/sonar.properties
-COPY config/sonarqube/sonar.sh /opt/sonar/bin/linux-x86-64/
-
-# Port 9000 is for SonarQube
-EXPOSE 2222 9000
-
-# Run Supervisor
-COPY entrypoint.sh /
-ENTRYPOINT [ "/bin/bash", "entrypoint.sh" ]
+USER sonarqube
+WORKDIR $SONARQUBE_HOME
+ENTRYPOINT ["./bin/run.sh"]
