@@ -16,6 +16,8 @@ RUN apt update && \
     syslog-ng \
     openssh-server \
     java-common \
+    sudo \
+    vim \
     software-properties-common && \
     apt-get clean
 
@@ -27,16 +29,18 @@ RUN wget https://d3pxv6yz143wms.cloudfront.net/8.232.09.1/java-1.8.0-amazon-corr
 RUN mkdir -p /var/run/sshd
 
 # Setting things right for MySQL
-RUN chown -R mysql:mysql /var/lib/mysql /var/run/mysqld
+VOLUME /var/lib/mysql
+RUN mkdir /var/run/mysqld/ && \
+    find /var/lib/mysql -type f -exec touch {} \; && \
+    chown -R mysql:mysql /var/lib/mysql /var/run/mysqld
 
 # Copy configuration files
 COPY config/supervisor/supervisord.conf /etc/supervisor/
 COPY config/openssh/ /etc/ssh/
-COPY entrypoint.sh /
 
 # Configuring SSH -- please disable this in prod
 RUN echo "root:Docker!" | chpasswd && \
-    useradd -d /home/human -m -s /bin/bash human && echo "human:J3anne#Iz&H3re%" | chpasswd && \
+    useradd -d /home/human -m -s /bin/bash human && echo "human:J3anne#Iz&H3re%" | chpasswd && adduser human sudo && \
     mkdir -p /home/human/.ssh/ && \
     chmod 0700 /home/human/.ssh/
 COPY config/openssh/id_rsa_onepoint_human.pub /home/human/.ssh/
@@ -47,20 +51,20 @@ RUN chmod 0600 /home/human/.ssh/id_rsa_onepoint_human.pub && \
     chown -R human:human /home/human/.ssh/
 
 RUN java -version && \
-    # mysql -u root -pmysql -e "create database sonar" && \
     wget https://binaries.sonarsource.com/Distribution/sonarqube/sonarqube-8.0.zip && \
     unzip sonarqube-8.0.zip -d /opt && \
     cd /opt && \
     mv sonarqube-8.0 sonar && \
     groupadd sonar && \
-    useradd -c "user to run SonarQube" -d /opt/sonar -g sonar sonar && \
+    useradd -c "User to run SonarQube" -d /opt/sonar -g sonar sonar && \
     chown sonar:sonar /opt/sonar -R
 
-# COPY config/sonarqube/sonar.properties /opt/sonar/conf/sonar.properties
-# COPY config/sonarqube/sonar.sh /opt/sonar/bin/linux-x86-64/
+COPY config/sonarqube/sonar.properties /opt/sonar/conf/sonar.properties
+COPY config/sonarqube/sonar.sh /opt/sonar/bin/linux-x86-64/
 
 # Port 9000 is for SonarQube
 EXPOSE 2222 9000
 
 # Run Supervisor
+COPY entrypoint.sh /
 ENTRYPOINT [ "/bin/bash", "entrypoint.sh" ]

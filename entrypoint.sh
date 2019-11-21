@@ -2,7 +2,7 @@
 
 echo "Running the entrypoint.sh script..."
 
-# Start Supervisor
+echo "Starting supervisord..."
 /usr/bin/supervisord -c /etc/supervisor/supervisord.conf
 retVal=$?
 if [ $retVal -ne 0 ]; then
