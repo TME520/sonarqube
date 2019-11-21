@@ -26,6 +26,9 @@ RUN wget https://d3pxv6yz143wms.cloudfront.net/8.232.09.1/java-1.8.0-amazon-corr
 # Folder needed by PHP and Openssh
 RUN mkdir -p /var/run/sshd
 
+# Setting things right for MySQL
+RUN chown -R mysql:mysql /var/lib/mysql /var/run/mysqld
+
 # Copy configuration files
 COPY config/supervisor/supervisord.conf /etc/supervisor/
 COPY config/openssh/ /etc/ssh/
