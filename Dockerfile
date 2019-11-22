@@ -58,4 +58,5 @@ COPY --chown=sonarqube:sonarqube run.sh "$SONARQUBE_HOME/bin/"
 
 USER sonarqube
 WORKDIR $SONARQUBE_HOME
+HEALTHCHECK --interval=10s --timeout=10s --start-period=300s --retries=3 CMD curl --fail http://localhost:9000/ || exit 1
 ENTRYPOINT ["./bin/run.sh"]
