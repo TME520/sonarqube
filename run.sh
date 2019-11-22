@@ -5,6 +5,9 @@ set -euo pipefail
 init_only=false
 SONARQUBE_HOME=/opt/sq
 SONARQUBE_PUBLIC_HOME=/opt/sonarqube
+SONARQUBE_JDBC_USERNAME="sonar@ews-postgresql-dev"
+SONARQUBE_JDBC_PASSWORD="B4rbaTruc13579"
+SONARQUBE_JDBC_URL="jdbc:postgresql://ews-postgresql-dev.postgres.database.azure.com:5432/sonardb?user=sonar@ews-postgresql-dev&password=B4rbaTruc13579&sslmode=require"
 
 if [[ "${1:-}" != -* ]]; then
   exec "$@"
@@ -63,8 +66,14 @@ initialize_sq_sub_dir() {
 initialize_sq_sub_dir "conf"
 initialize_sq_sub_dir "extensions"
 
+echo "Configuration dump:"
+# find / -type f -name 'sonar.properties'
+cat /opt/sonarqube/conf/sonar.properties
 
 if [ "$init_only" = false ]; then
+  echo "================"
+  echo "java -jar lib/sonar-application-$SONAR_VERSION.jar -Dsonar.log.console=true ${sq_opts[@]} $@"
+  echo "================"
   exec java -jar "lib/sonar-application-$SONAR_VERSION.jar" \
     -Dsonar.log.console=true \
     "${sq_opts[@]}" \
