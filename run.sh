@@ -66,10 +66,6 @@ initialize_sq_sub_dir() {
 initialize_sq_sub_dir "conf"
 initialize_sq_sub_dir "extensions"
 
-echo "Configuration dump:"
-# find / -type f -name 'sonar.properties'
-cat /opt/sonarqube/conf/sonar.properties
-
 if [ "$init_only" = false ]; then
   echo "================"
   echo "java -jar lib/sonar-application-$SONAR_VERSION.jar -Dsonar.log.console=true ${sq_opts[@]} $@"
