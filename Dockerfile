@@ -5,11 +5,14 @@ LABEL Name="sonarqube" Version="1.0" Maintainer="Onepoint Australia" Environment
 RUN sed -i 's/http\:\/\//http\:\/\/ews-apt-cache-ng-dev.azurewebsites.net\//g' /etc/apt/sources.list
 
 RUN apt update \
-    && apt install -y curl unzip libfreetype6 libfontconfig1 \
+    && apt install -y curl unzip libfreetype6 libfontconfig1 procps \
     && rm -rf /var/lib/apt/lists/*
 
 # Http port
-EXPOSE 80 9000
+EXPOSE 9000
+
+RUN sysctl vm.max_map_count && \
+    sysctl -w vm.max_map_count=262144
 
 RUN groupadd -r sonarqube && useradd -r -g sonarqube sonarqube
 
@@ -58,5 +61,5 @@ COPY --chown=sonarqube:sonarqube run.sh "$SONARQUBE_HOME/bin/"
 
 USER sonarqube
 WORKDIR $SONARQUBE_HOME
-HEALTHCHECK --interval=10s --timeout=10s --start-period=300s --retries=3 CMD curl --fail http://localhost:9000/ || exit 1
+HEALTHCHECK --interval=5m --timeout=10s --start-period=300s --retries=3 CMD curl --fail http://localhost:9000/ || exit 1
 ENTRYPOINT ["./bin/run.sh"]

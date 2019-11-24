@@ -8,6 +8,7 @@ SONARQUBE_PUBLIC_HOME=/opt/sonarqube
 SONARQUBE_JDBC_USERNAME="sonar@ews-postgresql-dev"
 SONARQUBE_JDBC_PASSWORD="B4rbaTruc13579"
 SONARQUBE_JDBC_URL="jdbc:postgresql://ews-postgresql-dev.postgres.database.azure.com:5432/sonardb?user=sonar@ews-postgresql-dev&password=B4rbaTruc13579&sslmode=require"
+SONARQUBE_WEB_JVM_OPTS="-Dnode.store.allow_mmapfs=false"
 
 if [[ "${1:-}" != -* ]]; then
   exec "$@"
